@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Загрузка файлов - YaCut{% endblock %}
+
+{% block content %}
+<section class="container my-5 px-4 text-center">
+  <h1 class="text-center"><span style="color:red">Ya</span>Cut</h1>
+  <p class="text-center my-4">
+    Загрузите файлы на Яндекс.Диск и получите короткие ссылки
+  </p>
+
+  <div class="row justify-content-center my-3">
+    <div class="col-md-6">
+      <form method="POST" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+          {{ form.files(class_="form-control form-control-lg py-2 mb-2", multiple=True) }}
+          {% if form.files.errors %}
+            <small class="text-danger">{{ form.files.errors[0] }}</small>
+          {% endif %}
+        </div>
+        <input type="submit" class="btn btn-primary" value="Загрузить">
+      </form>
+    </div>
+  </div>
+
+  {% if uploaded_files %}
+  <div class="container mt-4">
+    <h5>Ссылки на загруженные файлы:</h5>
+    <table class="table table-bordered table-striped text-break">
+      <thead>
+        <tr>
+          <th>Имя файла</th>
+          <th>Короткая ссылка</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in uploaded_files %}
+        <tr>
+          <td>{{ f.filename }}</td>
+          <td><a href="{{ f.short_url }}" target="_blank">{{ f.short_url }}</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
