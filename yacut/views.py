@@ -1,75 +1,72 @@
-from flask import redirect, render_template, request
+import asyncio
+
+from flask import redirect, render_template, flash
+
 from settings import Config
 from yacut import app
 from yacut.forms import FilesForm, URLForm
 from yacut.models import URLMap
 from yacut.async_upload import upload_files
-import asyncio
 
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     """Главная страница с формой для создания короткой ссылки."""
     form = URLForm()
-
-    if not form.validate_on_submit():
+    if form.validate_on_submit():
+        try:
+            flash(
+                URLMap.create(
+                    original=form.original_link.data,
+                    short=form.custom_id.data
+                ).short_url(),
+                "success"
+            )
+        except ValueError as exc:
+            flash(str(exc), "danger")
         return render_template("index.html", form=form)
-
-    try:
-        mapping = URLMap.create_with_custom_or_generated(
-            original=form.original_link.data, custom=form.custom_id.data
-        )
-    except ValueError as exc:
-        return render_template("index.html", form=form, error=str(exc))
-
-    short_url = mapping.short_link_url(request.host_url)
-    return render_template("index.html", form=form, short_url=short_url)
+    return render_template("index.html", form=form)
 
 
 @app.route("/<string:short>")
 def redirect_short(short):
     """Перенаправление по короткой ссылке на оригинальный адрес."""
-    mapping = URLMap.query.filter_by(short=short).first_or_404()
+    mapping = URLMap.get_by_short(short)
     return redirect(mapping.original)
 
 
 @app.route("/files", methods=["GET", "POST"])
 def files():
     form = FilesForm()
-    uploaded_files = []
+    if form.validate_on_submit():
+        try:
+            try:
+                results = asyncio.run(upload_files(
+                    Config.DISK_TOKEN, form.files.data
+                ))
+            except Exception as exc:
+                flash(f"Ошибка загрузки файлов: {exc}", "danger")
+                return render_template("files.html", form=form)
 
-    if not form.validate_on_submit():
-        return render_template(
-            "files.html",
-            form=form,
-            uploaded_files=uploaded_files
-        )
-
-    try:
-        results = asyncio.run(
-            upload_files(Config.DISK_TOKEN, form.files.data)
-        )
-
-        for file_obj, public_url in zip(form.files.data, results):
-            if isinstance(public_url, Exception):
-                uploaded_files.append(
-                    {"filename": file_obj.filename, "error": str(public_url)}
-                )
-                continue
-
-            mapping = URLMap.create_with_custom_or_generated(
-                original=public_url
-            )
-            uploaded_files.append(
+            uploaded_files = [
                 {
-                    "filename": file_obj.filename,
-                    "short_url": mapping.short_link_url(request.host_url),
+                    "filename": f.filename,
+                    "short_url": URLMap.create(original=url).short_url()
+                } if not isinstance(url, Exception) else {
+                    "filename": f.filename,
+                    "error": str(url)
                 }
+                for f, url in zip(form.files.data, results)
+            ]
+            flash("Файлы успешно загружены!", "success")
+            return render_template(
+                "files.html",
+                form=form,
+                uploaded_files=uploaded_files
             )
 
-    except ValueError as exc:
-        uploaded_files.append({"error": str(exc)})
+        except ValueError as exc:
+            flash(str(exc), "danger")
+            return render_template("files.html", form=form)
 
-    return render_template(
-        "files.html", form=form, uploaded_files=uploaded_files
-    )
+    return render_template("files.html", form=form)

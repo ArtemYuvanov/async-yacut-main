@@ -1,43 +1,43 @@
 from http import HTTPStatus
+
 from flask import jsonify, request
 
 from yacut import app
 from yacut.models import URLMap
 
 
-ERR_CUSTOM_EXISTS = "Предложенный вариант короткой ссылки уже существует"
+ERR_NO_BODY = "Отсутствует тело запроса"
+ERR_URL_REQUIRED = '"url" является обязательным полем!'
+ERR_NOT_FOUND = "Указанный id не найден"
+
+MESSAGE_KEY = "message"
 
 
 @app.route("/api/id/", methods=["POST"])
 def api_create_id():
     """Создаёт короткую ссылку через API."""
     data = request.get_json(silent=True)
+
     if not data:
-        return (
-            jsonify({"message": "Отсутствует тело запроса"}),
-            HTTPStatus.BAD_REQUEST
-        )
+        return jsonify({MESSAGE_KEY: ERR_NO_BODY}), HTTPStatus.BAD_REQUEST
 
     if "url" not in data or not data.get("url"):
-        return (
-            jsonify({"message": '"url" является обязательным полем!'}),
-            HTTPStatus.BAD_REQUEST,
-        )
-
-    original_url = data["url"]
-    custom = data.get("custom_id")
+        return jsonify({MESSAGE_KEY: ERR_URL_REQUIRED}), HTTPStatus.BAD_REQUEST
 
     try:
-        mapping = URLMap.create_with_custom_or_generated(
-            original=original_url, custom=custom
+        mapping = URLMap.create(
+            original=data["url"],
+            short=data.get("custom_id")
         )
     except ValueError as exc:
-        return jsonify({"message": str(exc)}), HTTPStatus.BAD_REQUEST
+        return jsonify({MESSAGE_KEY: str(exc)}), HTTPStatus.BAD_REQUEST
 
-    short_link = mapping.short_link_url(request.host_url)
     return (
-        jsonify({"url": original_url, "short_link": short_link}),
-        HTTPStatus.CREATED
+        jsonify({
+            "url": data["url"],
+            "short_link": mapping.short_url()
+        }),
+        HTTPStatus.CREATED,
     )
 
 
@@ -45,10 +45,8 @@ def api_create_id():
 def api_get_url(short):
     """Возвращает исходный URL по короткому идентификатору."""
     mapping = URLMap.query.filter_by(short=short).first()
+
     if not mapping:
-        return (
-            jsonify({"message": "Указанный id не найден"}),
-            HTTPStatus.NOT_FOUND
-        )
+        return jsonify({MESSAGE_KEY: ERR_NOT_FOUND}), HTTPStatus.NOT_FOUND
 
     return jsonify({"url": mapping.original}), HTTPStatus.OK

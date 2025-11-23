@@ -67,9 +67,6 @@ YaCut — это веб-приложение на Flask, позволяющее 
 -**Файл спецификации API**
 [openapi.yml](https://github.com/ArtemYuvanov/async-yacut-master/blob/master/openapi.yml)
 
--**Редактор Swagger для просмотра спецификации**
-[Swagger Editor](https://editor.swagger.io)
-
 ## Структура проекта
 
 yacut/
@@ -89,6 +86,6 @@ yacut/
 ## Автор
 
 Артём Юванов
-https://github.com/ArtemYuvanov
+[GitHub](https://github.com/ArtemYuvanov)
 
 Проект создан в рамках учебного курса Flask + API

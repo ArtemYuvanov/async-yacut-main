@@ -45,11 +45,7 @@
               <tr>
                 <td>{{ file.filename }}</td>
                 <td>
-                  {% if file.short_url %}
-                    <a href="{{ file.short_url }}" target="_blank" rel="noopener noreferrer">{{ file.short_url }}</a>
-                  {% elif file.error %}
-                    <span class="text-danger">{{ file.error }}</span>
-                  {% endif %}
+                  <a href="{{ file.short_url }}" target="_blank" rel="noopener noreferrer">{{ file.short_url }}</a>
                 </td>
               </tr>
             {% endfor %}
