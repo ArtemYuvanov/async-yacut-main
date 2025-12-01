@@ -2,13 +2,14 @@ import random
 import re
 from datetime import datetime, timezone
 
-from flask import current_app, url_for
+from flask import url_for
 
 from yacut import db
 from yacut.constants import (
     ALLOWED_RE,
     MAX_GENERATION_ATTEMPTS,
     ORIGINAL_MAX_LEN,
+    REDIRECT_VIEW_NAME,
     RESERVED_SHORTS,
     SHORT_ALPHABET,
     SHORT_LENGTH,
@@ -36,30 +37,29 @@ class URLMap(db.Model):
     )
 
     @staticmethod
+    def _exists(short: str) -> bool:
+        """Централизованная проверка существования short в БД."""
+        return URLMap.query.filter_by(short=short).first() is not None
+
+    @staticmethod
     def generate_short() -> str:
         """Сгенерировать уникальное значение short."""
         for _ in range(MAX_GENERATION_ATTEMPTS):
-            candidate = "".join(random.choices(SHORT_ALPHABET, k=SHORT_LENGTH))
-            if candidate not in RESERVED_SHORTS:
-                if URLMap.query.filter_by(short=candidate).first() is None:
-                    return candidate
+            short = "".join(random.choices(SHORT_ALPHABET, k=SHORT_LENGTH))
+            if short not in RESERVED_SHORTS and not URLMap._exists(short):
+                return short
         raise RuntimeError(ERR_GENERATION_FAILED)
 
     @staticmethod
     def create(original: str, short: str = None) -> "URLMap":
         """Создаёт и сохраняет объект URLMap."""
 
-        if len(original) > ORIGINAL_MAX_LEN:
-            raise ValueError("Слишком длинный URL.")
-
         if short:
-            if len(short) > SHORT_MAX_LEN:
-                raise ValueError(ERR_SHORT_INVALID)
             if short in RESERVED_SHORTS:
                 raise ValueError(ERR_SHORT_EXISTS)
             if re.match(ALLOWED_RE, short) is None:
                 raise ValueError(ERR_SHORT_INVALID)
-            if URLMap.query.filter_by(short=short).first():
+            if URLMap._exists(short):
                 raise ValueError(ERR_SHORT_EXISTS)
         else:
             short = URLMap.generate_short()
@@ -71,7 +71,7 @@ class URLMap(db.Model):
 
     def short_url(self) -> str:
         return url_for(
-            current_app.config["REDIRECT_VIEW_NAME"],
+            REDIRECT_VIEW_NAME,
             short=self.short,
             _external=True
         )

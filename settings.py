@@ -6,4 +6,3 @@ class Config(object):
     SECRET_KEY = os.getenv("SECRET_KEY")
     DISK_TOKEN = os.getenv("DISK_TOKEN")
     YADISK_API_BASE = "https://cloud-api.yandex.net/v1/disk/resources"
-    REDIRECT_VIEW_NAME = "redirect_short"

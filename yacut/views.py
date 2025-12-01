@@ -15,22 +15,23 @@ def index():
         return render_template("index.html", form=form)
 
     try:
-        short_url = URLMap.create(
-            original=form.original_link.data,
-            short=form.custom_id.data
-        ).short_url()
-    except ValueError as exc:
+        return render_template(
+            "index.html",
+            form=form,
+            short_url=URLMap.create(
+                original=form.original_link.data,
+                short=form.custom_id.data
+            ).short_url()
+        )
+    except (ValueError, Exception) as exc:
         flash(str(exc), "danger")
-        return render_template("index.html", form=form, error=str(exc))
-
-    return render_template("index.html", form=form, short_url=short_url)
+        return render_template("index.html", form=form)
 
 
 @app.route("/<string:short>")
 def redirect_short(short):
     """Перенаправление по короткой ссылке на оригинальный адрес."""
-    mapping = URLMap.get_or_404(short)
-    return redirect(mapping.original)
+    return redirect(URLMap.get_or_404(short).original)
 
 
 @app.route("/files", methods=["GET", "POST"])
@@ -44,20 +45,22 @@ def files():
     try:
         results = upload_files_sync(form.files.data)
     except Exception as exc:
-        error = f"Ошибка загрузки файлов: {exc}"
-        return render_template("files.html", form=form, error=error)
+        flash(str(exc), "danger")
+        return render_template("files.html", form=form)
 
-    uploaded_files = []
-    for f, url in zip(form.files.data, results):
-        try:
-            short_url = URLMap.create(original=url).short_url()
-            uploaded_files.append(
-                {"filename": f.filename, "short_url": short_url}
-            )
-        except Exception as exc:
-            uploaded_files.append(
-                {"filename": f.filename, "error": str(exc)}
-            )
+    uploaded_files = [
+        {"filename": f.filename, "url": url}
+        for f, url in zip(form.files.data, results)
+    ]
+
+    try:
+        for item in uploaded_files:
+            item["short_url"] = URLMap.create(
+                original=item["url"]
+            ).short_url()
+    except Exception as exc:
+        flash(str(exc), "danger")
+        return render_template("files.html", form=form)
 
     return render_template(
         "files.html", form=form, uploaded_files=uploaded_files
