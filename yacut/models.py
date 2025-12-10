@@ -40,16 +40,21 @@ class URLMap(db.Model):
     )
 
     @staticmethod
-    def _exists(short: str) -> bool:
-        """Централизованная проверка существования short в БД."""
-        return URLMap.query.filter_by(short=short).first() is not None
+    def get_or_404(short: str):
+        """Получить объект по short, если нет — 404."""
+        return URLMap.query.filter_by(short=short).first_or_404()
+
+    @staticmethod
+    def get(short: str):
+        """Возвращает объект URLMap по short или None, если не найден."""
+        return URLMap.query.filter_by(short=short).first()
 
     @staticmethod
     def generate_short() -> str:
         """Сгенерировать уникальное значение short."""
         for _ in range(MAX_GENERATION_ATTEMPTS):
             short = "".join(random.choices(SHORT_ALPHABET, k=SHORT_LENGTH))
-            if short not in RESERVED_SHORTS and not URLMap._exists(short):
+            if short not in RESERVED_SHORTS and not URLMap.get(short):
                 return short
         raise RuntimeError(ERR_GENERATION_FAILED)
 
@@ -58,19 +63,19 @@ class URLMap(db.Model):
         original: str,
         short: str = None,
         *,
-        from_form: bool = False
+        validate: bool = False
     ) -> "URLMap":
         """Создаёт и сохраняет объект URLMap."""
-        if not from_form and len(original) > ORIGINAL_MAX_LEN:
+        if not validate and len(original) > ORIGINAL_MAX_LEN:
             raise ValueError(ERR_ORIGINAL_TOO_LONG)
         if short:
-            if not from_form and len(short) > SHORT_MAX_LEN:
+            if not validate and len(short) > SHORT_MAX_LEN:
                 raise ValueError(ERR_SHORT_INVALID)
             if short in RESERVED_SHORTS:
                 raise ValueError(ERR_SHORT_EXISTS)
-            if re.match(ALLOWED_RE, short) is None:
+            if not validate and re.match(ALLOWED_RE, short) is None:
                 raise ValueError(ERR_SHORT_INVALID)
-            if URLMap._exists(short):
+            if URLMap.get(short):
                 raise ValueError(ERR_SHORT_EXISTS)
         else:
             short = URLMap.generate_short()
@@ -86,13 +91,3 @@ class URLMap(db.Model):
             short=self.short,
             _external=True
         )
-
-    @staticmethod
-    def get_or_404(short: str):
-        """Получить объект по short, если нет — 404."""
-        return URLMap.query.filter_by(short=short).first_or_404()
-
-    @staticmethod
-    def get(short: str):
-        """Возвращает объект URLMap по short или None, если не найден."""
-        return URLMap.query.filter_by(short=short).first()

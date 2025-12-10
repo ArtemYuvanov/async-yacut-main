@@ -27,8 +27,7 @@ def api_create_id():
             "url": data["url"],
             "short_link": URLMap.create(
                 original=data["url"],
-                short=data.get("custom_id"),
-                from_form=False
+                short=data.get("custom_id")
             ).short_url()
         }), HTTPStatus.CREATED
 

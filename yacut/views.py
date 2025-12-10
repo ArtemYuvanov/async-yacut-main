@@ -20,7 +20,8 @@ def index():
             form=form,
             short_url=URLMap.create(
                 original=form.original_link.data,
-                short=form.custom_id.data
+                short=form.custom_id.data,
+                validate=True,
             ).short_url()
         )
     except (ValueError, Exception) as exc:
@@ -43,7 +44,7 @@ def files():
         return render_template("files.html", form=form)
 
     try:
-        results = upload_files_sync(form.files.data)
+        uploaded_file_urls = upload_files_sync(form.files.data)
     except Exception as exc:
         flash(str(exc), "danger")
         return render_template("files.html", form=form)
@@ -54,14 +55,16 @@ def files():
             form=form,
             uploaded_files=[
                 {
-                    "filename": f.filename,
-                    "url": url,
+                    "filename": uploaded_file.filename,
+                    "url": uploaded_url,
                     "short_url": URLMap.create(
-                        original=url,
-                        from_form=True
+                        original=uploaded_url,
+                        validate=False
                     ).short_url(),
                 }
-                for f, url in zip(form.files.data, results)
+                for uploaded_file, uploaded_url in zip(
+                    form.files.data, uploaded_file_urls
+                )
             ],
         )
     except ValueError as exc:
